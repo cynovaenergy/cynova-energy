@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cynova Energy | Cinematic Luxury Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        luxury: { 900: '#0a0a0a', 950: '#030303' },
+                        gold: { 400: '#e8c96d', 500: '#c9a84c', 600: '#a38435' },
+                        ember: { 500: '#ff6b00' }
+                    },
+                    fontFamily: { 
+                        sans: ['"DM Sans"', 'sans-serif'],
+                        serif: ['"Cormorant Garamond"', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@11.0.8/dist/framer-motion.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { font-family: 'DM Sans', sans-serif; background-color: #030303; color: #e5e5e5; margin: 0; overflow-x: hidden; }
+        .glass-dark { background: rgba(5, 5, 5, 0.6); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.03); box-shadow: 0 30px 60px rgba(0,0,0,0.8); }
+        .gold-gradient-text { background: linear-gradient(90deg, #e8c96d, #c9a84c, #a38435); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .grain {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 9999;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03; mix-blend-mode: overlay;
+        }
+
+        @keyframes goldShimmer {
+            0% { text-shadow: 0 0 10px rgba(201,168,76, 0.1); }
+            50% { text-shadow: 0 0 40px rgba(232,201,109, 0.4); }
+            100% { text-shadow: 0 0 10px rgba(201,168,76, 0.1); }
+        }
+        .shimmer-text { animation: goldShimmer 4s infinite alternate; }
+
+        @keyframes flarePulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        .light-flare { animation: flarePulse 8s infinite alternate; mix-blend-mode: screen; filter: blur(100px); }
+
+        .btn-luxury {
+            background: linear-gradient(135deg, #e8c96d, #c9a84c);
+            color: #030303;
+            border: 1px solid #e8c96d;
+            box-shadow: 0 0 20px rgba(201,168,76,0.3);
+            position: relative;
+        }
+        .btn-luxury::after {
+            content: '';
+            position: absolute; inset: -4px;
+            border-radius: 9999px;
+            border: 1px solid rgba(232,201,109, 0.4);
+            opacity: 0; transition: all 0.3s ease;
+        }
+        .btn-luxury:hover::after { opacity: 1; transform: scale(1.05); }
+        .btn-luxury:hover { box-shadow: 0 0 40px rgba(232,201,109,0.5); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect, useRef } = React;
+        const { motion, useScroll, useTransform, useInView, animate } = window.Motion;
+
+        const systemData = {
+           "3.5kW": { kw: "3.5", trees: 220, water: 8000, co2: 4.0, coal: 2.2 },
+           "5.0kW": { kw: "5.0", trees: 315, water: 11500, co2: 5.7, coal: 3.1 },
+           "7.0kW": { kw: "7.0", trees: 440, water: 16000, co2: 8.0, coal: 4.4 },
+           "10.0kW": { kw: "10.0", trees: 630, water: 23000, co2: 11.4, coal: 6.3 }
+        };
+
+        function Counter({ to, duration, decimals = 0 }) {
+            const nodeRef = useRef(null);
+            const inView = useInView(nodeRef, { once: true, margin: "-50px" });
+            const prevValue = useRef(0);
+
+            useEffect(() => {
+                const node = nodeRef.current;
+                if (inView && node) {
+                    const controls = animate(prevValue.current, to, {
+                        duration,
+                        ease: "easeOut",
+                        onUpdate(value) {
+                            if (decimals > 0) {
+                                node.textContent = value.toFixed(decimals);
+                            } else {
+                                node.textContent = Math.floor(value).toLocaleString();
+                            }
+                            prevValue.current = value;
+                        },
+                    });
+                    return () => controls.stop();
+                }
+            }, [to, duration, decimals, inView]);
+
+            return <span ref={nodeRef}>{prevValue.current}</span>;
+        }
+
+        const Divider = () => (
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent my-4"></div>
+        );
+
+        function Navbar() {
+            const { scrollY } = useScroll();
+            const navBackground = useTransform(scrollY, [0, 50], ["rgba(3, 3, 3, 0)", "rgba(3, 3, 3, 0.8)"]);
+            const navBackdrop = useTransform(scrollY, [0, 50], ["blur(0px)", "blur(20px)"]);
+
+            const handleDownload = () => {
+                const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'cynova_luxury.html';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+
+            return (
+                <motion.header
+                    style={{ backgroundColor: navBackground, backdropFilter: navBackdrop, WebkitBackdropFilter: navBackdrop }}
+                    className="fixed top-0 left-0 right-0 z-[100] border-b border-gold-500/10 transition-all w-full"
+                >
+                    <div className="container mx-auto px-8 py-6 flex items-center justify-between">
+                        <div className="text-3xl font-serif tracking-widest flex items-center gap-1">
+                            <span className="text-white">CYNOVA</span>
+                        </div>
+                        <nav className="hidden lg:flex gap-12 font-medium text-xs tracking-[0.2em] uppercase">
+                            <a href="#hero" className="text-neutral-400 hover:text-gold-400 transition-colors">Home</a>
+                            <a href="#services" className="text-neutral-400 hover:text-gold-400 transition-colors">Expertise</a>
+                            <a href="#impact" className="text-neutral-400 hover:text-gold-400 transition-colors">Impact</a>
+                            <a href="#testimonials" className="text-neutral-400 hover:text-gold-400 transition-colors">Clients</a>
+                        </nav>
+                        <div className="flex items-center gap-6">
+                            <button className="hidden sm:block btn-luxury px-8 py-3 rounded-full font-bold text-sm tracking-widest uppercase transition-all">
+                                Consult
+                            </button>
+                            <button 
+                                onClick={handleDownload} 
+                                title="Export HTML" 
+                                className="w-10 h-10 rounded-full flex items-center justify-center border border-gold-500/20 text-gold-500 hover:bg-gold-500 hover:text-black transition-all group"
+                            >
+                                <svg className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </motion.header>
+            );
+        }
+
+        function Hero() {
+            const { scrollY } = useScroll();
+            const y = useTransform(scrollY, [0, 1000], [0, 250]);
+            const opacity = useTransform(scrollY, [0, 600], [1, 0]);
+
+            const particles = Array.from({ length: 20 });
+
+            return (
+                <section id="hero" className="relative h-screen w-full overflow-hidden flex items-center justify-center">
+                    <motion.div style={{ y, opacity }} className="absolute inset-0 w-full h-[120%] -top-[10%] z-0">
+                        {/* Dramatic sun-flare leak */}
+                        <div className="absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] bg-amber-600/20 rounded-full light-flare z-10"></div>
+                        <div className="absolute top-1/4 left-1/4 w-[40vw] h-[40vw] bg-ember-500/10 rounded-full light-flare z-10" style={{ animationDelay: '2s' }}></div>
+                        
+                        <div className="absolute inset-0 bg-gradient-to-b from-[#030303]/80 via-transparent to-[#030303] z-20" />
+                        <div className="absolute inset-0 bg-[#030303]/40 z-10" />
+                        
+                        <img src="https://images.unsplash.com/photo-1588805988001-383e58988582?q=80&w=2672&auto=format&fit=crop" className="w-full h-full object-cover object-center mix-blend-luminosity opacity-60 grayscale" alt="Solar Architecture" />
+                    </motion.div>
+                    
+                    {/* Floating Particles */}
+                    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+                        {particles.map((_, i) => (
+                            <motion.div 
+                                key={i}
+                                initial={{ y: "100vh", x: Math.random() * window.innerWidth, opacity: 0 }}
+                                animate={{ y: "-10vh", opacity: [0, 1, 0] }}
+                                transition={{ duration: 10 + Math.random() * 15, repeat: Infinity, ease: "linear", delay: Math.random() * 10 }}
+                                className="absolute w-1 h-1 bg-gold-400/50 rounded-full blur-[1px]"
+                            />
+                        ))}
+                    </div>
+
+                    <div className="container mx-auto px-6 relative z-30 flex flex-col items-center text-center mt-20">
+                        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.2, ease: "easeOut" }}>
+                            <div className="inline-block tracking-[0.3em] text-gold-400 text-xs font-semibold uppercase mb-6 border border-gold-500/30 px-6 py-2 rounded-full backdrop-blur-md">
+                                The Pinnacle of Power
+                            </div>
+                            <h1 className="text-6xl md:text-[7rem] font-serif font-medium leading-[1.05] mb-8 text-white max-w-5xl mx-auto drop-shadow-2xl">
+                                India's Energy Revolution <br/><span className="gold-gradient-text italic opacity-90 shimmer-text">Starts Here.</span>
+                            </h1>
+                            <p className="text-lg md:text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed mb-12 font-light">
+                                Architecting a sustainable legacy with ultra-premium solar solutions engineered for the world's most demanding estates and enterprises.
+                            </p>
+                            <button className="btn-luxury px-12 py-5 rounded-full font-bold text-lg tracking-widest uppercase inline-flex items-center gap-4">
+                                Secure Your Future
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                            </button>
+                        </motion.div>
+                    </div>
+                </section>
+            );
+        }
+
+        function Services() {
+            const services = [
+                { 
+                    title: "Estate Integration", 
+                    desc: "Bespoke residential arrays crafted to blend seamlessly into luxury architecture while delivering uncompromising efficiency.", 
+                },
+                { 
+                    title: "Corporate Campuses", 
+                    desc: "Massive-scale commercial deployments designed to zero out operational massive energy burdens intelligently.", 
+                },
+                { 
+                    title: "White-Glove Care", 
+                    desc: "24/7 dedicated concierge monitoring, ensuring your infrastructure performs at peak output perpetually.", 
+                }
+            ];
+
+            return (
+                <section id="services" className="py-32 relative z-10 w-full overflow-hidden">
+                    <Divider />
+                    <div className="container mx-auto px-6 relative z-10 py-10">
+                        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-24 text-center">
+                            <span className="text-gold-500 font-sans tracking-[0.2em] text-xs uppercase mb-4 block">Our Offerings</span>
+                            <h2 className="text-5xl md:text-7xl font-serif text-white">Elite Infrastructure</h2>
+                        </motion.div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                            {services.map((svc, i) => (
+                                <motion.div 
+                                    key={i}
+                                    initial={{ opacity: 0, y: 50 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true, margin: "-50px" }}
+                                    transition={{ delay: i * 0.15 }}
+                                    className="glass-dark p-12 rounded-none relative group transition-all duration-700 hover:-translate-y-2 border-t border-transparent hover:border-gold-500"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-gold-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+                                    <div className="w-12 h-12 mb-10 flex items-center text-gold-500 opacity-60 group-hover:opacity-100 transition-opacity">
+                                        <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                    </div>
+                                    <h3 className="text-3xl font-serif mb-6 text-white">{svc.title}</h3>
+                                    <p className="text-neutral-400 font-light leading-relaxed mb-10 group-hover:text-neutral-300 transition-colors">{svc.desc}</p>
+                                    <a href="#contact" className="text-gold-500 text-sm tracking-widest uppercase font-bold inline-flex items-center gap-2 group-hover:gap-4 transition-all">
+                                        Discover <span className="font-serif text-lg">→</span>
+                                    </a>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        }
+
+        function Banner() {
+            return (
+                <section className="relative py-40 overflow-hidden flex items-center justify-center border-y border-gold-500/10">
+                     <div className="absolute inset-0 bg-luxury-950/80 z-10 backdrop-blur-sm"></div>
+                     <img src="https://images.unsplash.com/photo-1613665813446-82a78c468a1d?q=80&w=2000&auto=format&fit=crop" className="absolute inset-0 w-full h-full object-cover z-0 opacity-30 mix-blend-luminosity grayscale" alt="India Rooftops" />
+                     
+                     <div className="relative z-20 container mx-auto px-6 text-center">
+                         <h2 className="font-serif text-5xl md:text-7xl text-white mb-28 drop-shadow-2xl">Why India Chooses <span className="italic text-gold-400 shimmer-text">Solar</span></h2>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-8">
+                             <div className="flex flex-col items-center">
+                                 <div className="font-serif text-7xl md:text-[6rem] text-gold-500 mb-6 font-medium">300+</div>
+                                 <div className="w-12 h-px bg-gold-500/50 mb-6"></div>
+                                 <div className="text-sm text-neutral-300 tracking-[0.3em] uppercase">Sunny Days a Year</div>
+                             </div>
+                             <div className="flex flex-col items-center">
+                                 <div className="font-serif text-7xl md:text-[6rem] text-gold-500 mb-6 font-medium">₹0</div>
+                                 <div className="w-12 h-px bg-gold-500/50 mb-6"></div>
+                                 <div className="text-sm text-neutral-300 tracking-[0.3em] uppercase">Electricity Bills</div>
+                             </div>
+                             <div className="flex flex-col items-center">
+                                 <div className="font-serif text-7xl md:text-[6rem] text-gold-500 mb-6 font-medium">25<span className="text-4xl">Y</span></div>
+                                 <div className="w-12 h-px bg-gold-500/50 mb-6"></div>
+                                 <div className="text-sm text-neutral-300 tracking-[0.3em] uppercase">Performance Warranty</div>
+                             </div>
+                         </div>
+                     </div>
+                </section>
+            );
+        }
+
+        function Impact() {
+            const [activeSystem, setActiveSystem] = useState("10.0kW");
+            const data = systemData[activeSystem];
+
+            return (
+                <section id="impact" className="py-32 relative z-10 w-full flex justify-center">
+                    <div className="container mx-auto px-6 max-w-6xl relative z-10">
+                        <div className="text-center mb-16">
+                            <h2 className="font-serif text-5xl md:text-7xl text-white mb-6">Global Impact Calculator</h2>
+                            <p className="text-neutral-400 max-w-2xl mx-auto font-light">Witness the empirical footprint reduction generated by our precision-engineered installations.</p>
+                        </div>
+
+                        <div className="glass-dark p-16 md:p-24 rounded-none relative overflow-hidden backdrop-blur-3xl">
+                            {/* System Selector */}
+                            <div className="flex flex-wrap justify-center gap-4 mb-24 relative z-20">
+                                {Object.keys(systemData).map(key => (
+                                    <button 
+                                        key={key}
+                                        onClick={() => setActiveSystem(key)}
+                                        className={`px-8 py-3 font-sans tracking-[0.1em] text-sm uppercase transition-all duration-500 border ${
+                                            activeSystem === key 
+                                            ? 'bg-gold-500 text-black border-gold-500 shadow-[0_0_30px_rgba(201,168,76,0.4)]'
+                                            : 'bg-transparent text-neutral-400 border-neutral-800 hover:border-gold-500/50 hover:text-white'
+                                        }`}
+                                    >
+                                        {key}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-24 gap-x-8 relative">
+                                <div className="hidden md:block absolute left-1/2 top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-gold-500/20 to-transparent" />
+                                <div className="hidden md:block absolute top-[50%] left-8 right-8 h-px bg-gradient-to-r from-transparent via-gold-500/20 to-transparent" />
+
+                                <div className="text-center group">
+                                    <div className="text-7xl md:text-8xl font-serif text-white mb-6 tracking-tight shimmer-text">
+                                        <Counter to={data.trees} duration={1.2} />
+                                    </div>
+                                    <p className="text-sm tracking-[0.2em] text-gold-500 uppercase">Trees to the Planet</p>
+                                </div>
+
+                                <div className="text-center group">
+                                    <div className="text-7xl md:text-8xl font-serif text-white mb-6 tracking-tight shimmer-text">
+                                        <Counter to={data.water} duration={1.5} />
+                                    </div>
+                                    <p className="text-sm tracking-[0.2em] text-gold-500 uppercase">Litres of Water Saved</p>
+                                </div>
+
+                                <div className="text-center group">
+                                    <div className="text-7xl md:text-8xl font-serif text-white mb-6 tracking-tight shimmer-text flex items-center justify-center gap-1">
+                                        <Counter to={data.co2} duration={1.2} decimals={1} />
+                                    </div>
+                                    <p className="text-sm tracking-[0.2em] text-gold-500 uppercase">Tons of CO<sub className="bottom-0">2</sub> Reduced</p>
+                                </div>
+
+                                <div className="text-center group">
+                                    <div className="text-7xl md:text-8xl font-serif text-white mb-6 tracking-tight shimmer-text flex items-center justify-center gap-1">
+                                        <Counter to={data.coal} duration={1.2} decimals={1} />
+                                    </div>
+                                    <p className="text-sm tracking-[0.2em] text-gold-500 uppercase">Tons of Coal Avoided</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        }
+
+        function Testimonials() {
+            const [width, setWidth] = useState(0);
+            const carouselRef = useRef(null);
+            
+            const testimonials = [
+                { name: "S. L.", role: "ESTATE OWNER", text: "Cynova Energy transformed our architecture. The integration is completely invisible. Simply majestic." },
+                { name: "D. M.", role: "CEO, APEX INC", text: "The commercial array decimated our operational costs. Their execution team is the absolute apex of professionalism." },
+                { name: "E. R.", role: "PORTFOLIO MANAGER", text: "From the initial consultation to final commissioning, a truly white-glove experience. Highly recommended." },
+                { name: "M. T.", role: "FACILITY DIRECTOR", text: "Their preventative maintenance plans ensure our sprawling infrastructure remains perpetually optimal." }
+            ];
+
+            useEffect(() => {
+                if (carouselRef.current) {
+                    setWidth(carouselRef.current.scrollWidth - carouselRef.current.offsetWidth);
+                }
+            }, []);
+
+            return (
+                <section id="testimonials" className="py-32 overflow-hidden relative z-10 w-full mb-10">
+                    <Divider />
+                    <div className="container mx-auto px-6 py-10">
+                        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-20">
+                            <span className="text-gold-500 font-sans tracking-[0.2em] text-xs uppercase mb-4 block">Reputation</span>
+                            <h2 className="text-5xl md:text-7xl font-serif text-white">Voices of the Elite</h2>
+                        </motion.div>
+
+                        <motion.div ref={carouselRef} className="cursor-grab overflow-hidden cursor-grabbing hide-scrollbar pb-10">
+                            <motion.div drag="x" dragConstraints={{ right: 0, left: -width }} className="flex gap-10 px-4 w-max">
+                                {testimonials.map((t, i) => (
+                                    <motion.div 
+                                        key={i} 
+                                        className="w-[400px] md:w-[500px] glass-dark p-12 flex flex-col pointer-events-none"
+                                    >
+                                        <div className="font-serif text-[8rem] text-gold-500/20 leading-none h-20 mb-6">“</div>
+                                        <p className="text-neutral-200 text-xl font-serif italic leading-loose mb-12 flex-grow">"{t.text}"</p>
+                                        <div className="flex items-center gap-4 border-t border-white/5 pt-6">
+                                            <div>
+                                                <div className="font-bold text-white tracking-widest">{t.name}</div>
+                                                <div className="text-xs text-gold-500 uppercase tracking-[0.2em] mt-2">{t.role}</div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        </motion.div>
+                    </div>
+                    <Divider />
+                </section>
+            );
+        }
+
+        // --- Main Layout Architecture ---
+        function App() {
+            return (
+                <main className="min-h-screen relative bg-luxury-950 overflow-hidden selection:bg-gold-500 selection:text-black">
+                    
+                    {/* The Premium Print Grain Overlay */}
+                    <div className="grain" />
+
+                    <Navbar />
+                    <Hero />
+                    <Services />
+                    <Banner />
+                    <Impact />
+                    <Testimonials />
+                    
+                    <footer className="relative pt-40 pb-12 overflow-hidden flex flex-col items-center border-t border-gold-500/20">
+                        {/* Dramatic faded sunrise background at bottom */}
+                        <div className="absolute inset-0 z-0">
+                            <img src="https://images.unsplash.com/photo-1473268800813-f9ceee5c2e1f?q=80&w=2674&auto=format&fit=crop" className="w-full h-full object-cover object-bottom opacity-30 mix-blend-luminosity grayscale" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-luxury-950 via-luxury-950/80 to-luxury-950/20"></div>
+                        </div>
+
+                        <div className="relative z-10 w-full max-w-4xl text-center px-6 mb-32">
+                            <h2 className="text-5xl md:text-7xl font-serif text-white mb-10 drop-shadow-md">Initiate Your Conversion</h2>
+                            <p className="text-neutral-400 text-lg mb-12 font-light">Join the ranks of top-tier enterprises adopting completely sustainable luxury infrastructure.</p>
+                            <button className="btn-luxury px-14 py-6 rounded-full font-bold text-lg tracking-[0.2em] uppercase transition">
+                                Request Private Consultation
+                            </button>
+                        </div>
+                        
+                        <div className="relative z-10 container mx-auto px-6 flex flex-col items-center pt-20 border-t border-white/5">
+                            <div className="text-3xl font-serif tracking-widest text-white mb-6 opacity-80">
+                                CYNOVA<span className="text-gold-500">.</span>
+                            </div>
+                            <p className="text-xs text-neutral-500 tracking-[0.2em] uppercase">© 2026 Cynova Energy Corp. All Rights Reserved.</p>
+                        </div>
+                    </footer>
+                </main>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
